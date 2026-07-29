@@ -24,7 +24,7 @@ t1_files = dir(fullfile(bids_dir, participant, '**', '*_T1w.nii.gz'));
 this_files = cell(length(t1_files),1);
 
 for i = 1:length(t1_files)
-    this_files{i} = fullfile(t1_files(i).folder, t1_files(i).name);
+    this_files{i} = [fullfile(t1_files(i).folder, t1_files(i).name) ',1'];
 end
 
 %% Again, tells me what's behind the curtain
