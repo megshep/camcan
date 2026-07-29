@@ -11,7 +11,7 @@
 module load apps/binapps/matlab/R2024b
 
 # Set SPM path
-export USER_SPM_DIR="/mnt/iusers01/nm01/j90161ms/scratch/spm25/spm"
+export USER_SPM_DIR="/mnt/iusers01/nm01/j90161ms/scratch/spm25"
 
 # Run from submission directory
 cd "$SLURM_SUBMIT_DIR"
