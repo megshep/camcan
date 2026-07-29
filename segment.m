@@ -40,7 +40,7 @@ matlabbatch{1}.spm.spatial.preproc.channel.biasfwhm = 60;
 matlabbatch{1}.spm.spatial.preproc.channel.write = [0 0];
 
 % Tissue probability maps
-tpm_path = '/mnt/iusers01/nm01/j90161ms/spm25/spm/tpm/TPM.nii';
+tpm_path = '/mnt/iusers01/nm01/j90161ms/spm25/tpm/TPM.nii';
 
 for i = 1:6
     matlabbatch{1}.spm.spatial.preproc.tissue(i).tpm = {[tpm_path ',' num2str(i)]};
