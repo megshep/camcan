@@ -1,8 +1,4 @@
-%% Propagate longitudinal average segmentations back to each time point
-% Uses SPM25 Deformations -> Pullback
-% Applies y_ deformation fields to c1/c2/c3 average segmentations
-
-%% Get SLURM job array index
+%% Get SLURM array ID
 SUB_ID = str2double(getenv('SLURM_ARRAY_TASK_ID'));
 
 %% Load SPM
@@ -10,20 +6,17 @@ addpath('/mnt/iusers01/nm01/j90161ms/scratch/spm25');
 spm('Defaults','fMRI');
 spm_jobman('initcfg');
 
-
 %% Directories
 bids_dir = '/mnt/iusers01/nm01/j90161ms/camcan/data/';
 avg_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/long_reg/';
 out_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/propagated/';
 
-%% Read participants
-
+%% Read participants table
 T = readtable('/mnt/iusers01/nm01/j90161ms/camcan/data/participants.tsv',...
     'FileType','text',...
     'Delimiter','\t');
 
 %% Select participant
-
 participant = T.participant_id{SUB_ID};
 fprintf('\nProcessing %s\n',participant);
 
@@ -37,29 +30,28 @@ if isempty(c1_file) || isempty(c2_file) || isempty(c3_file)
     error('Missing average segmentation for %s',participant)
 end
 
-
 c1 = fullfile(c1_file(1).folder,c1_file(1).name);
 c2 = fullfile(c2_file(1).folder,c2_file(1).name);
 c3 = fullfile(c3_file(1).folder,c3_file(1).name);
+
 fprintf('Found average segmentations\n');
 
-%% Store tissue images
-tissue_files = {
-    c1
-    c2
-    c3
-    };
 
-%% Sessions
+
+%% Tissue files to propagate
+tissue_files = {c1
+    c2
+    c3};
+
+%% Sessions to check
 sessions = {'P2','P3','P5'};
 
 
 
-%% Loop through timepoints
+%% Loop through available sessions
 for s = 1:length(sessions)
     ses = sessions{s};
-    fprintf('\nApplying deformation for %s\n',ses);
-
+    fprintf('\nChecking %s\n',ses);
 
     %% Find deformation field
     y_file = dir(fullfile(bids_dir,...
@@ -68,42 +60,41 @@ for s = 1:length(sessions)
         'anat',...
         'y_*.nii'));
 
+    % Some participants do not have all visits (no ses-P3)
     if isempty(y_file)
-        error('No deformation field found for %s %s',participant,ses)
+        fprintf('No deformation field found for %s - skipping\n',ses);
+        continue
     end
 
     y_path = fullfile(y_file(1).folder,y_file(1).name);
     fprintf('Using deformation:\n%s\n',y_path);
 
-
-    %% Clear previous batch
+    %% Clear batch
     matlabbatch = {};
 
-    %% Apply deformation (SPM25 Pullback)
+    %% SPM25 Deformations
     matlabbatch{1}.spm.util.defs.comp{1}.def = {y_path};
 
-
-    %% Images to transform
-matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {
+    %% Images to pull back
+    matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {
         tissue_files{1}
         tissue_files{2}
         tissue_files{3}
         };
+        
+    %% Output folder
+    matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.saveusr = {out_dir};
 
-    %% Output directory
-matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.saveusr = {out_dir};
+    %% Pullback settings (from GUI)
+    matlabbatch{1}.spm.util.defs.out{1}.pull.interp = 4;
+    matlabbatch{1}.spm.util.defs.out{1}.pull.mask = 1;
+    matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm = [0 0 0];
+    matlabbatch{1}.spm.util.defs.out{1}.pull.prefix = 'p';
 
-    %% Same settings as GUI
-matlabbatch{1}.spm.util.defs.out{1}.pull.interp = 4;
-matlabbatch{1}.spm.util.defs.out{1}.pull.mask = 1;
-matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm = [0 0 0];
-matlabbatch{1}.spm.util.defs.out{1}.pull.prefix = 'p';
-
-    %% Run
+    %% Run deformation
     spm_jobman('run',matlabbatch);
     fprintf('Finished %s %s\n',participant,ses);
 
 end
 
-
-fprintf('\nFinished participant %s\n',participant);
+fprintf('\nFinished participant %s\n',particip
