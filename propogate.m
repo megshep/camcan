@@ -1,4 +1,4 @@
-%% Get SLURM array ID
+%% Get SLURM job array index
 SUB_ID = str2double(getenv('SLURM_ARRAY_TASK_ID'));
 
 %% Load SPM
@@ -6,95 +6,77 @@ addpath('/mnt/iusers01/nm01/j90161ms/scratch/spm25');
 spm('Defaults','fMRI');
 spm_jobman('initcfg');
 
+
 %% Directories
-bids_dir = '/mnt/iusers01/nm01/j90161ms/camcan/data/';
-avg_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/long_reg/';
+data_dir = '/mnt/iusers01/nm01/j90161ms/camcan/data/';
+seg_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/long_reg/';
 out_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/propagated/';
 
-%% Read participants table
-T = readtable('/mnt/iusers01/nm01/j90161ms/camcan/data/participants.tsv',...
-    'FileType','text',...
-    'Delimiter','\t');
+
+%% Read participants
+T = readtable('/mnt/iusers01/nm01/j90161ms/camcan/data/participants.tsv', ...
+    'FileType','text','Delimiter','\t');
 
 %% Select participant
 participant = T.participant_id{SUB_ID};
-fprintf('\nProcessing %s\n',participant);
+fprintf('\nProcessing %s\n', participant);
+
 
 %% Find average segmentations
-c1_file = dir(fullfile(avg_dir,['c1avg_' participant '*.nii']));
-c2_file = dir(fullfile(avg_dir,['c2avg_' participant '*.nii']));
-c3_file = dir(fullfile(avg_dir,['c3avg_' participant '*.nii']));
+avg_gm = dir(fullfile(seg_dir, ['c1avg_' participant '*.nii']));
+avg_wm = dir(fullfile(seg_dir, ['c2avg_' participant '*.nii']));
+avg_csf = dir(fullfile(seg_dir, ['c3avg_' participant '*.nii']));
 
-
-if isempty(c1_file) || isempty(c2_file) || isempty(c3_file)
-    error('Missing average segmentation for %s',participant)
+if isempty(avg_gm)
+    error('No average segmentations found for %s', participant);
 end
-
-c1 = fullfile(c1_file(1).folder,c1_file(1).name);
-c2 = fullfile(c2_file(1).folder,c2_file(1).name);
-c3 = fullfile(c3_file(1).folder,c3_file(1).name);
 
 fprintf('Found average segmentations\n');
 
+%% Find deformation fields for this participant
+y_files = dir(fullfile(data_dir, participant, '**', ...
+    ['y_' participant '*.nii']));
 
-
-%% Tissue files to propagate
-tissue_files = {c1
-    c2
-    c3};
-
-%% Sessions to check
-sessions = {'P2','P3','P5'};
-
-
-
-%% Loop through available sessions
-for s = 1:length(sessions)
-    ses = sessions{s};
-    fprintf('\nChecking %s\n',ses);
-
-    %% Find deformation field
-    y_file = dir(fullfile(bids_dir,...
-        participant,...
-        ['ses-' ses],...
-        'anat',...
-        'y_*.nii'));
-
-    % Some participants do not have all visits (no ses-P3)
-    if isempty(y_file)
-        fprintf('No deformation field found for %s - skipping\n',ses);
-        continue
-    end
-
-    y_path = fullfile(y_file(1).folder,y_file(1).name);
-    fprintf('Using deformation:\n%s\n',y_path);
-
-    %% Clear batch
-    matlabbatch = {};
-
-    %% SPM25 Deformations
-    matlabbatch{1}.spm.util.defs.comp{1}.def = {y_path};
-
-    %% Images to pull back
-    matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {
-        tissue_files{1}
-        tissue_files{2}
-        tissue_files{3}
-        };
-        
-    %% Output folder
-    matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.saveusr = {out_dir};
-
-    %% Pullback settings (from GUI)
-    matlabbatch{1}.spm.util.defs.out{1}.pull.interp = 4;
-    matlabbatch{1}.spm.util.defs.out{1}.pull.mask = 1;
-    matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm = [0 0 0];
-    matlabbatch{1}.spm.util.defs.out{1}.pull.prefix = 'p';
-
-    %% Run deformation
-    spm_jobman('run',matlabbatch);
-    fprintf('Finished %s %s\n',participant,ses);
-
+if isempty(y_files)
+    error('No deformation fields found for %s', participant);
 end
 
-fprintf('\nFinished participant %s\n',particip
+%% Create output folder
+if ~exist(out_dir,'dir')
+    mkdir(out_dir)
+end
+
+%% Loop through all visits
+for i = 1:length(y_files)
+
+    clear matlabbatch
+
+    y_path = fullfile(y_files(i).folder,y_files(i).name);
+
+    fprintf('\nApplying deformation %d/%d\n', i, length(y_files));
+    fprintf('Using deformation:\n%s\n', y_path);
+    
+    % Pull back average segmentation into native space
+    matlabbatch{1}.spm.util.defs.comp{1}.def = {y_path};
+    matlabbatch{1}.spm.util.defs.out{1}.pull.fnames = {
+        fullfile(avg_gm(1).folder, avg_gm(1).name)
+        fullfile(avg_wm(1).folder, avg_wm(1).name)
+        fullfile(avg_csf(1).folder, avg_csf(1).name)
+        };
+    matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.saveusr = {out_dir};
+
+    % interpolation
+    matlabbatch{1}.spm.util.defs.out{1}.pull.interp = 4;
+    % masking
+    matlabbatch{1}.spm.util.defs.out{1}.pull.mask = 1;
+    % smoothing
+    matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm = [0 0 0];
+    % prefix
+    matlabbatch{1}.spm.util.defs.out{1}.pull.prefix = 'p';
+    %% Run
+    spm_jobman('run',matlabbatch);
+
+    fprintf('Finished %s\n', y_files(i).name);
+end
+
+fprintf('\nFinished all visits for %s\n', participant);
