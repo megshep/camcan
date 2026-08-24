@@ -7,7 +7,7 @@ spm_jobman('initcfg');
 
 %% Define segmented longitudinal-average GM and WM directory
 
-seg_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/segmentation_avg';
+seg_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/segmentation_avg_resampled_nii';
 
 
 %% Find GM and WM segmentations of longitudinal average images
@@ -55,7 +55,6 @@ for i = 1:min(5,numel(gm))
     fprintf('%s\n\n', wm_name);
 
 end
-
 
 %% Add volume index (required by SPM)
 
