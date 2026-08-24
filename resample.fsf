@@ -1,0 +1,55 @@
+REF=/mnt/iusers01/nm01/j90161ms/camcan/output_files/segmentation_avg/c1avg_sub-CC120049_ses-P2_T1w.nii
+
+IN_DIR=/mnt/iusers01/nm01/j90161ms/camcan/output_files/segmentation_avg
+
+OUT_DIR=/mnt/iusers01/nm01/j90161ms/camcan/output_files/segmentation_avg_resampled
+
+for f in "$IN_DIR"/c1avg*.nii; do
+
+    base=$(basename "$f" .nii)
+
+    echo "Resampling GM: $base"
+
+    flirt \
+        -ref "$REF" \
+        -in "$f" \
+        -out "$OUT_DIR/${base}_resampled.nii.gz" \
+        -usesqform \
+        -interp trilinear \
+        -applyxfm
+
+done
+
+
+
+
+REF=/mnt/iusers01/nm01/j90161ms/camcan/output_files/segmentation_avg/c1avg_sub-CC120049_ses-P2_T1w.nii
+
+IN_DIR=/mnt/iusers01/nm01/j90161ms/camcan/output_files/segmentation_avg
+
+OUT_DIR=/mnt/iusers01/nm01/j90161ms/camcan/output_files/segmentation_avg_resampled
+
+for f in "$IN_DIR"/c2avg*.nii; do
+
+    base=$(basename "$f" .nii)
+
+    echo "Resampling WM: $base"
+
+    flirt \
+        -ref "$REF" \
+        -in "$f" \
+        -out "$OUT_DIR/${base}_resampled.nii.gz" \
+        -usesqform \
+        -interp trilinear \
+        -applyxfm
+
+done
+
+
+
+for f in /mnt/iusers01/nm01/j90161ms/camcan/output_files/segmentation_avg_resampled/c1avg*_resampled.nii.gz; do
+    fslhd "$f" | awk '/^dim[1-3][[:space:]]/ {printf "%s ", $2}'
+    echo
+done | sort | uniq -c
+
+
