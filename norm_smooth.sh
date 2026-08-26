@@ -2,7 +2,7 @@
 #SBATCH --job-name=norm_smooth_camcan
 #SBATCH --output=/mnt/iusers01/nm01/j90161ms/camcan/norm_smooth_logs/norm_smooth_camcan_%A_%a.out
 #SBATCH --error=/mnt/iusers01/nm01/j90161ms/camcan/norm_smooth_logs/norm_smooth_camcan_%A_%a.err
-#SBATCH --array=1-104%104
+#SBATCH --array=1-139%139
 #SBATCH --time=24:00:00
 #SBATCH --mem=20G
 #SBATCH --cpus-per-task=1
