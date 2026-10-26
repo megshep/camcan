@@ -1,3 +1,4 @@
+```matlab
 %% Initialise SPM
 
 addpath('/mnt/iusers01/nm01/j90161ms/scratch/spm25');
@@ -5,21 +6,24 @@ spm('defaults','FMRI');
 spm_jobman('initcfg');
 
 
-%% Define segmented longitudinal-average GM and WM directory
+%% Define propagated individual session segmentations directory
 
-seg_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/segmentation_avg_resampled_nii';
+data_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/propagated';
 
 
-%% Find GM and WM segmentations of longitudinal average images
+%% Find propagated individual session GM and WM segmentations
 
-% c1avg = GM
-% c2avg = WM
+% pc1 = propagated GM
+% pc2 = propagated WM
 
-gm_struct = dir(fullfile(seg_dir,'c1avg*.nii'));
-wm_struct = dir(fullfile(seg_dir,'c2avg*.nii'));
+gm_struct = dir(fullfile(data_dir, ...
+    'sub-CC*', 'ses-P*', 'pc1*.nii'));
 
-gm = fullfile({gm_struct.folder},{gm_struct.name});
-wm = fullfile({wm_struct.folder},{wm_struct.name});
+wm_struct = dir(fullfile(data_dir, ...
+    'sub-CC*', 'ses-P*', 'pc2*.nii'));
+
+gm = fullfile({gm_struct.folder}, {gm_struct.name});
+wm = fullfile({wm_struct.folder}, {wm_struct.name});
 
 
 %% Sort to maintain GM/WM pairing
@@ -31,7 +35,7 @@ wm = sort(wm);
 %% Sanity checks
 
 if isempty(gm) || isempty(wm)
-    error('No segmented average GM or WM images found - check directory');
+    error('No propagated GM or WM images found - check directory');
 end
 
 if numel(gm) ~= numel(wm)
@@ -39,22 +43,24 @@ if numel(gm) ~= numel(wm)
         numel(gm), numel(wm));
 end
 
-fprintf('Found %d participants\n', numel(gm));
+fprintf('Found %d propagated GM images and %d propagated WM images\n', ...
+    numel(gm), numel(wm));
 
 
 %% Check GM/WM pairing
 
 fprintf('\nChecking GM/WM pairing:\n');
 
-for i = 1:min(5,numel(gm))
+for i = 1:min(10, numel(gm))
 
-    [~,gm_name,~] = fileparts(gm{i});
-    [~,wm_name,~] = fileparts(wm{i});
+    [~, gm_name, ~] = fileparts(gm{i});
+    [~, wm_name, ~] = fileparts(wm{i});
 
-    fprintf('%s\n', gm_name);
-    fprintf('%s\n\n', wm_name);
+    fprintf('GM: %s\n', gm_name);
+    fprintf('WM: %s\n\n', wm_name);
 
 end
+
 
 %% Add volume index (required by SPM)
 
@@ -92,7 +98,8 @@ params = [
 
 for i = 1:6
 
-    matlabbatch{1}.spm.tools.dartel.warp.settings.param(i).its = params(i,1);
+    matlabbatch{1}.spm.tools.dartel.warp.settings.param(i).its = ...
+        params(i,1);
 
     matlabbatch{1}.spm.tools.dartel.warp.settings.param(i).rparam = ...
         params(i,2:4);
@@ -115,8 +122,9 @@ matlabbatch{1}.spm.tools.dartel.warp.settings.optim.its = 3;
 
 %% Run DARTEL
 
-disp('Starting CamCAN DARTEL population template creation...');
+disp('Starting CamCAN DARTEL template creation using propagated individual sessions...');
 
-spm_jobman('run',matlabbatch);
+spm_jobman('run', matlabbatch);
 
 disp('DARTEL population template creation complete!');
+```
