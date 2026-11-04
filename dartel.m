@@ -1,3 +1,4 @@
+
 %% Initialise SPM
 
 addpath('/mnt/iusers01/nm01/j90161ms/scratch/spm25');
@@ -7,84 +8,96 @@ spm_jobman('initcfg');
 
 %% Define directories
 
-data_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/propagated';
+data_dir = '/mnt/iusers01/nm01/j90161ms/camcan/data/';
 
-% Separate directory for the new individual-session DARTEL template
-out_dir = '/mnt/iusers01/nm01/j90161ms/camcan/dartel_individual_sessions';
+final_dir = '/mnt/iusers01/nm01/j90161ms/camcan/output_files/final_dartel/';
 
-if ~exist(out_dir, 'dir')
-    mkdir(out_dir);
-end
-
-cd(out_dir);
-
-
-%% Find propagated individual-session GM and WM images
-
-% pc1 = propagated grey matter
-% pc2 = propagated white matter
-
-gm_struct = dir(fullfile(data_dir, '**', 'pc1*.nii'));
-wm_struct = dir(fullfile(data_dir, '**', 'pc2*.nii'));
-
-gm_paths = fullfile({gm_struct.folder}, {gm_struct.name});
-wm_paths = fullfile({wm_struct.folder}, {wm_struct.name});
-
-gm_paths = gm_paths(:);
-wm_paths = wm_paths(:);
-
-
-%% Check that matching GM and WM images exist
-
-if isempty(gm_paths) || isempty(wm_paths)
-    error('No pc1 or pc2 images found. Check the propagated directory.');
-end
-
-% Extract participant/session identifiers from each filename and path
-gm_keys = cell(size(gm_paths));
-wm_keys = cell(size(wm_paths));
-
-for i = 1:numel(gm_paths)
-    gm_keys{i} = regexprep(gm_paths{i}, '^.*(sub-CC[^/]+/ses-P[^/]+/).*pc1', '$1pc');
-end
-
-for i = 1:numel(wm_paths)
-    wm_keys{i} = regexprep(wm_paths{i}, '^.*(sub-CC[^/]+/ses-P[^/]+/).*pc2', '$1pc');
-end
-
-[gm_keys, gm_order] = sort(gm_keys);
-[wm_keys, wm_order] = sort(wm_keys);
-
-gm_paths = gm_paths(gm_order);
-wm_paths = wm_paths(wm_order);
-
-if numel(gm_paths) ~= numel(wm_paths)
-    error('GM count (%d) and WM count (%d) differ.', ...
-        numel(gm_paths), numel(wm_paths));
-end
-
-if ~isequal(gm_keys, wm_keys)
-    error(['GM and WM files do not match by participant/session. ' ...
-           'Check filenames before running DARTEL.']);
-end
-
-fprintf('Found %d matching individual-session GM/WM pairs.\n', ...
-    numel(gm_paths));
-
-
-%% Display first 10 pairs for verification
-
-fprintf('\nFirst 10 GM/WM pairs:\n');
-
-for i = 1:min(10, numel(gm_paths))
-    fprintf('GM: %s\nWM: %s\n\n', gm_paths{i}, wm_paths{i});
+if ~exist(final_dir,'dir')
+    mkdir(final_dir);
 end
 
 
-%% Add volume index required by SPM
+%% Find individual DARTEL-imported GM images
 
-gm = strcat(gm_paths, ',1');
-wm = strcat(wm_paths, ',1');
+% rc1 = GM
+% rc2 = WM
+
+gm_struct = spm_select('FPListRec', data_dir, ...
+    '^rc1sub-.*_T1w\.nii$');
+
+gm_source = cellstr(gm_struct);
+gm_source = strtrim(gm_source);
+gm_source = gm_source(~cellfun('isempty',gm_source));
+
+gm_source = sort(gm_source);
+
+
+%% Match each GM image to its WM image
+
+gm = {};
+wm = {};
+
+for i = 1:numel(gm_source)
+
+    gm_file = gm_source{i};
+
+    wm_file = regexprep(gm_file, 'rc1sub-', 'rc2sub-');
+
+    if ~exist(wm_file,'file')
+        error('Matching WM image not found for: %s', gm_file);
+    end
+
+    % Copy images into final_dartel
+    [~,gm_name,gm_ext] = fileparts(gm_file);
+    [~,wm_name,wm_ext] = fileparts(wm_file);
+
+    gm_dest = fullfile(final_dir,[gm_name gm_ext]);
+    wm_dest = fullfile(final_dir,[wm_name wm_ext]);
+
+    copyfile(gm_file,gm_dest,'f');
+    copyfile(wm_file,wm_dest,'f');
+
+    gm{end+1,1} = gm_dest;
+    wm{end+1,1} = wm_dest;
+
+end
+
+
+%% Sanity checks
+
+if isempty(gm) || isempty(wm)
+    error('No DARTEL-imported GM or WM images found.');
+end
+
+if numel(gm) ~= numel(wm)
+    error('GM and WM counts do not match.');
+end
+
+fprintf('Found %d individual session scans.\n',numel(gm));
+
+
+%% Check GM/WM pairing
+
+fprintf('\nChecking GM/WM pairing:\n');
+
+for i = 1:min(5,numel(gm))
+
+    [~,gm_name,~] = fileparts(gm{i});
+    [~,wm_name,~] = fileparts(wm{i});
+
+    fprintf('%s\n',gm_name);
+    fprintf('%s\n\n',wm_name);
+
+end
+
+
+%% Add volume index
+
+gm = strcat(gm,',1');
+wm = strcat(wm,',1');
+
+gm = gm(:);
+wm = wm(:);
 
 
 %% DARTEL template creation
@@ -97,6 +110,7 @@ matlabbatch{1}.spm.tools.dartel.warp.images = {
 };
 
 matlabbatch{1}.spm.tools.dartel.warp.settings.template = 'Template';
+
 matlabbatch{1}.spm.tools.dartel.warp.settings.rform = 0;
 
 
@@ -112,8 +126,8 @@ params = [
 ];
 
 for i = 1:6
-    matlabbatch{1}.spm.tools.dartel.warp.settings.param(i).its = ...
-        params(i,1);
+
+    matlabbatch{1}.spm.tools.dartel.warp.settings.param(i).its = params(i,1);
 
     matlabbatch{1}.spm.tools.dartel.warp.settings.param(i).rparam = ...
         params(i,2:4);
@@ -123,6 +137,7 @@ for i = 1:6
 
     matlabbatch{1}.spm.tools.dartel.warp.settings.param(i).slam = ...
         params(i,6);
+
 end
 
 
@@ -135,9 +150,9 @@ matlabbatch{1}.spm.tools.dartel.warp.settings.optim.its = 3;
 
 %% Run DARTEL
 
-fprintf('\nStarting DARTEL with individual-session segmentations...\n');
-fprintf('Output directory: %s\n', out_dir);
+disp('Starting DARTEL population template creation from individual segmentations...');
 
-spm_jobman('run', matlabbatch);
+spm_jobman('run',matlabbatch);
 
-fprintf('\nDARTEL template creation complete!\n');
+disp('DARTEL population template creation complete!');
+disp(['Outputs saved in: ' final_dir]);
