@@ -2,7 +2,7 @@
 SUB_ID = str2double(getenv('SLURM_ARRAY_TASK_ID'));
 
 %% BIDS directory
-bids_dir = '/mnt/iusers01/nm01/j90161ms/camcan/data/';
+bids_dir = '/mnt/iusers01/nm01/j90161ms/camcan_rerun/data/';
 
 %% Get participant folders
 participants = dir(fullfile(bids_dir, 'sub-*'));
@@ -18,7 +18,7 @@ participant = participants{SUB_ID};
 fprintf('Processing %s\n', participant);
 
 %% Find all T1w scans for this participant (need this to be all because some have 3 and some have 2)
-t1_files = dir(fullfile(bids_dir, participant, '**', '*_T1w.nii.gz'));
+t1_files = dir(fullfile(bids_dir, participant, '**', '*_T1w.nii'));
 
 % Convert to full file paths
 this_files = cell(length(t1_files),1);
@@ -40,7 +40,7 @@ matlabbatch{1}.spm.spatial.preproc.channel.biasfwhm = 60;
 matlabbatch{1}.spm.spatial.preproc.channel.write = [0 0];
 
 % Tissue probability maps
-tpm_path = '/mnt/iusers01/nm01/j90161ms/spm25/tpm/TPM.nii';
+tpm_path = '/mnt/iusers01/nm01/j90161ms/scratch/spm25/tpm/TPM.nii';
 
 for i = 1:6
     matlabbatch{1}.spm.spatial.preproc.tissue(i).tpm = {[tpm_path ',' num2str(i)]};
